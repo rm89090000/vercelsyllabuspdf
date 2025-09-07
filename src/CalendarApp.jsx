@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import "./Calendar.css";
 
 function CalendarApp() {
   const [events, setEvents] = useState([]);
@@ -7,8 +6,8 @@ function CalendarApp() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   const monthNames = [
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December"
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
 
   const handleUpload = async (e) => {
@@ -16,17 +15,25 @@ function CalendarApp() {
     const fileInput = document.getElementById("fileInput");
     if (!fileInput.files.length) return;
 
-    const file = fileInput.files[0];
-    const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-    const res = await fetch("/api/parse", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ file: base64 })
-    });
-    const data = await res.json();
-    setEvents(data.events || []);
+    try {
+      const res = await fetch("/api/parse", {
+        method: "POST",
+        body: fileInput.files[0] // send the raw file
+      });
+
+      const data = await res.json();
+      if (data.error) {
+        alert("Failed to parse PDF: " + data.error);
+        return;
+      }
+      setEvents(data.events || []);
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      alert("Error uploading file. Check console for details.");
+    }
   };
 
   const renderCalendarDays = () => {
@@ -57,32 +64,38 @@ function CalendarApp() {
   return (
     <div className="app-container">
       <h1>Syllabus → Calendar</h1>
+
       <div className="upload-box">
         <form onSubmit={handleUpload} className="upload-form">
           <label>Upload your PDF syllabus(s):</label>
-          <input type="file" id="fileInput" required />
+          <input type="file" id="fileInput" accept=".pdf" required />
           <button type="submit">Upload & Parse</button>
         </form>
       </div>
 
       <div id="calendar">
         <div className="calendar-header">
-          <button onClick={() =>
-            setCurrentMonth(prev => prev === 0 ? (setCurrentYear(y => y-1), 11) : prev-1)
-          }>Prev</button>
+          <button onClick={() => {
+            setCurrentMonth(prev => {
+              if (prev === 0) {
+                setCurrentYear(y => y - 1);
+                return 11;
+              }
+              return prev - 1;
+            });
+          }}>Prev</button>
 
           <div id="monthYear">{`${monthNames[currentMonth]} ${currentYear}`}</div>
 
-          <button onClick={() =>
-            setCurrentMonth(prev => prev === 11 ? (setCurrentYear(y => y+1), 0) : prev+1)
-          }>Next</button>
-        </div>
-
-        {/* Weekday headers */}
-        <div className="calendar-weekdays">
-          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(day => (
-            <div key={day} className="weekday">{day}</div>
-          ))}
+          <button onClick={() => {
+            setCurrentMonth(prev => {
+              if (prev === 11) {
+                setCurrentYear(y => y + 1);
+                return 0;
+              }
+              return prev + 1;
+            });
+          }}>Next</button>
         </div>
 
         <div className="calendar-grid">{renderCalendarDays()}</div>
